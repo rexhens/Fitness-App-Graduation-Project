@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #3DD598;
+  --primary-dark: #2AA876;
+  --secondary: #0A1629;
+  --accent: #FF575F;
+  --background: #F8F9FC;
+  --success: #4CAF50;
+  --warning: #FF9800;
+  --error: #F44336;
+  --text-primary: #1A1C1E;
+  --text-secondary: #4D5E80;
+  --text-tertiary: #8A94A6;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--background);
+  color: var(--text-primary);
+  margin: 0;
+  padding: 0;
+}
+
+.auth-gradient {
+  background: linear-gradient(135deg, #0A1629 0%, #1E3A8A 100%);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #c5c5c5;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-[#3DD598] hover:bg-[#2AA876] text-white font-medium py-2 px-6 rounded-md transition-all duration-300 ease-in-out;
+  }
+  
+  .btn-secondary {
+    @apply bg-white hover:bg-gray-100 text-[#0A1629] border border-gray-300 font-medium py-2 px-6 rounded-md transition-all duration-300 ease-in-out;
+  }
+  
+  .input-field {
+    @apply w-full px-4 py-3 rounded-md border border-gray-300 focus:border-[#3DD598] focus:ring-1 focus:ring-[#3DD598] focus:outline-none transition-all duration-200;
+  }
+  
+  .card {
+    @apply bg-white rounded-xl shadow-sm p-6 transition-all duration-300 hover:shadow-md;
+  }
+}
