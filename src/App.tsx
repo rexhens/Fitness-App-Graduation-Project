@@ -9,6 +9,8 @@ import PhysicalMetrics from './pages/PhysicalMetrics';
 import ChatBot from './pages/ChatBot';
 import FitnessGoals from './pages/FitnessGoals';
 import NotFound from './pages/NotFound';
+import InitialMetrics from './pages/InitialMetrics';
+import Signup from './pages/SignUp';
 
 // Layout
 import DashboardLayout from './components/layouts/DashboardLayout';
@@ -19,7 +21,8 @@ const App: React.FC = () => {
   return (
     <Routes>
       <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
-      
+       <Route path="/signup" element={!isAuthenticated ? <Signup /> : <Navigate to="/" />} />
+      <Route path="/initial-metrics" element={ <InitialMetrics />} />
       <Route path="/" element={isAuthenticated ? <DashboardLayout /> : <Navigate to="/login" />}>
         <Route index element={<Dashboard />} />
         <Route path="metrics" element={<PhysicalMetrics />} />
