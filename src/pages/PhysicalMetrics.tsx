@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { motion } from 'framer-motion';
 import { BarChart3, Save } from 'lucide-react';
@@ -23,11 +23,40 @@ const PhysicalMetrics: React.FC = () => {
     muscle_mass: '',
     bmi: '',
   });
+
   const [loading, setLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    const userId = localStorage.getItem('fittrack_user_id');
+
+    if (!userId) return;
+
+    const fetchMetrics = async () => {
+      try {
+        const response = await fetch(`https://localhost:7054/get-metrics?user_id=${userId}`);
+        if (!response.ok) throw new Error('Network response was not ok');
+
+        const data = await response.json();
+
+        setForm({
+          age: data.age || '',
+          gender: data.gender || 'Male',
+          weight_kg: data.weight_kg || '',
+          height_cm: data.height_cm || '',
+          body_fat_percentage: data.body_fat_percentage || '',
+          muscle_mass: data.muscle_mass || '',
+          bmi: data.bmi || '',
+        });
+      } catch (error) {
+        console.error('Failed to fetch metrics:', error);
+      }
+    };
+
+    fetchMetrics();
+  }, []);
 
   const calculateBMI = (): number => {
     if (typeof form.weight_kg === 'number' && typeof form.height_cm === 'number' && form.height_cm > 0) {
-      // BMI = weight (kg) / (height (m))^2
       const heightInMeters = form.height_cm / 100;
       return parseFloat((form.weight_kg / (heightInMeters * heightInMeters)).toFixed(1));
     }
@@ -36,9 +65,8 @@ const PhysicalMetrics: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    
     const newValue = e.target.type === 'number' ? (value === '' ? '' : parseFloat(value)) : value;
-    
+
     setForm({
       ...form,
       [name]: newValue,
@@ -46,36 +74,51 @@ const PhysicalMetrics: React.FC = () => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Calculate BMI if not provided
-    const calculatedBMI = form.bmi || calculateBMI();
-    
-    // Prepare data for submission
-    const dataToSubmit = {
-      ...form,
-      bmi: calculatedBMI,
-    };
-    
-    setLoading(true);
-    
-    try {
-      // Here we'd make the actual API call in a real application
-      // For demo purposes, we'll simulate a successful API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log('Metrics data to submit:', dataToSubmit);
-      
-      // Simulate API response
-      toast.success('Physical metrics saved successfully');
-    } catch (error) {
-      console.error('Error saving metrics:', error);
-      toast.error('Failed to save metrics. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+  e.preventDefault();
+
+  const calculatedBMI = form.bmi || calculateBMI();
+  const userId = localStorage.getItem('fittrack_user_id');
+
+  if (!userId) {
+    toast.error('User ID not found.');
+    return;
+  }
+
+  // Prepare the data object to be sent to the API
+  const dataToSubmit = {
+    age: form.age,
+    weight: form.weight_kg,
+    height: form.height_cm,
+    body_fat_percentage: form.body_fat_percentage,
+    muscle_mass: form.muscle_mass,
+    bmi: calculatedBMI,
+    notes: 'string', // Add the note or leave it dynamic as required
   };
 
+  setLoading(true);
+
+  try {
+    const response = await fetch(`https://localhost:7054/Progress/save-progress?userId=${userId}`, {
+      method: 'POST',
+      headers: {
+        'accept': '*/*',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(dataToSubmit),
+    });
+
+    if (!response.ok) throw new Error('Failed to save metrics');
+
+    toast.success('Physical metrics saved successfully');
+  } catch (error) {
+    console.error('Error saving metrics:', error);
+    toast.error('Failed to save metrics. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
+
+  
   return (
     <div className="space-y-6">
       <div className="pb-4 border-b border-gray-200">
