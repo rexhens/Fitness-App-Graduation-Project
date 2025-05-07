@@ -47,51 +47,58 @@ const ChatBot: React.FC = () => {
     setInput('');
     setLoading(true);
     
-    try {
-      // Here we'd make the actual API call to the backend
-      // For demo purposes, we'll simulate a response
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // In a real application, this would be the response from the API
-      let botResponse = "I'm still learning about fitness, but here's what I know: ";
-      
-      // Add some variation based on the user's question
-      if (input.toLowerCase().includes('sleep') || input.toLowerCase().includes('rest')) {
-        botResponse += "Quality sleep is crucial for muscle recovery and overall fitness. Getting 7-9 hours of sleep is recommended, as it's during deep sleep that your body releases growth hormone which helps repair muscles and supports fat loss. Poor sleep can increase cortisol (stress hormone) which can lead to muscle breakdown and fat storage.";
-      } else if (input.toLowerCase().includes('diet') || input.toLowerCase().includes('nutrition') || input.toLowerCase().includes('eat')) {
-        botResponse += "Nutrition is a foundation of fitness success. Focus on whole foods, adequate protein (about 0.8-1g per pound of body weight), complex carbs for energy, and healthy fats. Stay hydrated and consider timing your nutrition around your workouts for optimal results.";
-      } else if (input.toLowerCase().includes('workout') || input.toLowerCase().includes('exercise') || input.toLowerCase().includes('train')) {
-        botResponse += "For an effective workout routine, consistency beats intensity. Focus on progressive overload (gradually increasing weight/reps), include both strength training and cardio, and ensure you're giving muscle groups adequate recovery time. A well-structured program might include 3-4 strength sessions and 2-3 cardio sessions weekly.";
-      } else {
-        botResponse += "For best fitness results, focus on the three pillars: proper nutrition, consistent exercise, and adequate recovery. Small, sustainable changes tend to yield better long-term results than drastic measures. Would you like specific advice about nutrition, workouts, or recovery strategies?";
-      }
-      
-      const botMessageObj: Message = {
-        id: (Date.now() + 1).toString(),
-        text: botResponse,
-        isUser: false,
-        timestamp: new Date(),
-      };
-      
-      setMessages((prev) => [...prev, botMessageObj]);
-    } catch (error) {
-      console.error('Error sending message:', error);
-      toast.error('Failed to get a response. Please try again.');
-      
-      // Add an error message from the bot
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          text: "I'm sorry, I'm having trouble connecting right now. Please try again later.",
-          isUser: false,
-          timestamp: new Date(),
-        },
-      ]);
-    } finally {
-      setLoading(false);
-    }
+   try {
+  const response = await fetch('https://localhost:7054/ClientCall/ask?user_id=8', {
+    method: 'POST',
+    headers: {
+      'accept': '*/*',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ question: input }),
+  });
+
+  if (!response.ok) {
+    throw new Error('API request failed');
+  }
+
+  let botResponse = await response.text();
+
+  // Add some variation based on the user's question
+  const lowerInput = input.toLowerCase();
+  if (lowerInput.includes('sleep') || lowerInput.includes('rest')) {
+    botResponse += " Quality sleep is crucial for muscle recovery and overall fitness. Getting 7-9 hours of sleep is recommended...";
+  } else if (lowerInput.includes('diet') || lowerInput.includes('nutrition') || lowerInput.includes('eat')) {
+    botResponse += " Nutrition is a foundation of fitness success...";
+  } else if (lowerInput.includes('workout') || lowerInput.includes('exercise') || lowerInput.includes('train')) {
+    botResponse += " For an effective workout routine, consistency beats intensity...";
+  } else {
+    botResponse += " For best fitness results, focus on the three pillars...";
+  }
+
+  const botMessageObj: Message = {
+    id: (Date.now() + 1).toString(),
+    text: botResponse,
+    isUser: false,
+    timestamp: new Date(),
   };
+
+  setMessages((prev) => [...prev, botMessageObj]);
+   setLoading(false);
+} catch (error) {
+  console.error('Error sending message:', error);
+  toast.error('Failed to get a response. Please try again.');
+  setMessages((prev) => [
+    ...prev,
+    {
+      id: (Date.now() + 1).toString(),
+      text: "I'm sorry, I'm having trouble connecting right now. Please try again later.",
+      isUser: false,
+      timestamp: new Date(),
+    },
+  ]);
+}
+  }
+
 
   return (
     <div className="flex flex-col h-[calc(100vh-10rem)]">

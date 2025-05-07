@@ -23,7 +23,7 @@ const PhysicalMetrics: React.FC = () => {
     muscle_mass: '',
     bmi: '',
   });
-
+const [progressHistory, setProgressHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
@@ -51,9 +51,25 @@ const PhysicalMetrics: React.FC = () => {
         console.error('Failed to fetch metrics:', error);
       }
     };
+    const fetchProgressHistory = async () => {
+  try {
+    const response = await fetch(`https://localhost:7054/Progress/get-full-progres?userId=${userId}`);
+    if (!response.ok) throw new Error('Failed to fetch progress history');
+
+    const data = await response.json();
+    setProgressHistory(data);
+  } catch (error) {
+    console.error('Error fetching progress history:', error);
+  }
+};
+
+fetchProgressHistory();
+
 
     fetchMetrics();
   }, []);
+
+  
 
   const calculateBMI = (): number => {
     if (typeof form.weight_kg === 'number' && typeof form.height_cm === 'number' && form.height_cm > 0) {
@@ -203,7 +219,7 @@ const PhysicalMetrics: React.FC = () => {
         className="card"
       >
         <div className="mb-6">
-          <h2 className="text-lg font-semibold text-textPrimary">Update Your Measurements</h2>
+          <h2 className="text-lg font-semibold text-textPrimary">Update Your Progress</h2>
           <p className="text-sm text-textSecondary">Enter your most recent physical metrics to track your progress</p>
         </div>
 
@@ -333,7 +349,7 @@ const PhysicalMetrics: React.FC = () => {
               className="btn-primary flex items-center"
             >
               <Save size={18} className="mr-2" />
-              {loading ? 'Saving...' : 'Save Metrics'}
+              {loading ? 'Saving...' : 'Save Progres'}
             </button>
           </div>
         </form>
@@ -347,7 +363,7 @@ const PhysicalMetrics: React.FC = () => {
         className="card"
       >
         <div className="mb-6">
-          <h2 className="text-lg font-semibold text-textPrimary">Measurement History</h2>
+          <h2 className="text-lg font-semibold text-textPrimary">Progress Measurement History</h2>
           <p className="text-sm text-textSecondary">Track your physical changes over time</p>
         </div>
 
@@ -373,30 +389,35 @@ const PhysicalMetrics: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {[
-                { date: '2023-06-15', weight: 78.5, bmi: 24.2, bodyFat: 18.5, muscleMass: 32.1 },
-                { date: '2023-05-15', weight: 80.2, bmi: 24.7, bodyFat: 19.2, muscleMass: 31.5 },
-                { date: '2023-04-15', weight: 82.0, bmi: 25.3, bodyFat: 20.1, muscleMass: 30.8 },
-              ].map((record, index) => (
-                <tr key={index}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-textPrimary">
-                    {new Date(record.date).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-textPrimary">
-                    {record.weight}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-textPrimary">
-                    {record.bmi}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-textPrimary">
-                    {record.bodyFat}%
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-textPrimary">
-                    {record.muscleMass} kg
-                  </td>
-                </tr>
-              ))}
-            </tbody>
+  {progressHistory.length > 0 ? (
+    progressHistory.map((entry, index) => (
+      <tr key={index}>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+          {new Date(entry.measured_at).toLocaleDateString()}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+          {entry.weight}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+          {entry.bmi}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+          {entry.body_fat_percentage}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+          {entry.muscle_mass}
+        </td>
+      </tr>
+    ))
+  ) : (
+    <tr>
+      <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
+        No progress records found.
+      </td>
+    </tr>
+  )}
+</tbody>
+
           </table>
         </div>
       </motion.div>
