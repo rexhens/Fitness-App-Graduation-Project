@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { motion } from 'framer-motion';
 import { Target, Edit, Trash2, Check, X, Plus, ArrowRight } from 'lucide-react';
@@ -12,40 +12,49 @@ interface Goal {
 }
 
 const FitnessGoals: React.FC = () => {
-  const [goals, setGoals] = useState<Goal[]>([
-    {
-      id: '1',
-      description: 'Run a 5K under 30 minutes',
-      targetDate: new Date('2025-01-15'),
-      completed: false,
-      progress: 65,
-    },
-    {
-      id: '2',
-      description: 'Increase bench press by 20kg',
-      targetDate: new Date('2025-03-10'),
-      completed: false,
-      progress: 40,
-    },
-    {
-      id: '3',
-      description: 'Lose 5kg while maintaining muscle mass',
-      targetDate: new Date('2025-06-01'),
-      completed: false,
-      progress: 25,
-    },
-  ]);
-  
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [newGoal, setNewGoal] = useState<{
     description: string;
     targetDate: string;
   }>({
     description: '',
-    targetDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Default to 30 days from now
+    targetDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
   });
   
   const [loading, setLoading] = useState<boolean>(false);
   const [editingGoal, setEditingGoal] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchGoals();
+  }, []);
+
+  const fetchGoals = async () => {
+    try {
+      const userId = localStorage.getItem('fittrack_user_id');
+      const response = await fetch(`https://localhost:7054/Goals/get-all-goals?userId=${userId}`, {
+        headers: {
+          'accept': '*/*',
+          'Authorization': `Bearer ${localStorage.getItem('fittrack_api_key')}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch goals');
+      }
+
+      const data = await response.json();
+      setGoals(data.map((goal: any) => ({
+        id: goal.id.toString(),
+        description: goal.goal_description,
+        targetDate: new Date(goal.target_date),
+        completed: goal.completed || false,
+        progress: Math.round(goal.progress * 100) // Convert decimal to percentage
+      })));
+    } catch (error) {
+      console.error('Error fetching goals:', error);
+      toast.error('Failed to load goals');
+    }
+  };
   
   const handleAddGoal = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,19 +67,25 @@ const FitnessGoals: React.FC = () => {
     setLoading(true);
     
     try {
-      // Here we'd make the actual API call in a real application
-      // For demo purposes, we'll simulate a successful API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const userId = localStorage.getItem('fittrack_user_id');
+      const response = await fetch(`https://localhost:7054/set-goal?user_id=${userId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('fittrack_api_key')}`
+        },
+        body: JSON.stringify({
+          goal_description: newGoal.description,
+          target_date: new Date(newGoal.targetDate).toISOString()
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add goal');
+      }
+
+      await fetchGoals(); // Refresh goals list
       
-      const goal: Goal = {
-        id: Date.now().toString(),
-        description: newGoal.description,
-        targetDate: new Date(newGoal.targetDate),
-        completed: false,
-        progress: 0,
-      };
-      
-      setGoals([...goals, goal]);
       setNewGoal({
         description: '',
         targetDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -85,20 +100,55 @@ const FitnessGoals: React.FC = () => {
     }
   };
   
-  const handleToggleComplete = (id: string) => {
-    setGoals(
-      goals.map((goal) =>
+  const handleToggleComplete = async (id: string) => {
+    try {
+      const updatedGoals = goals.map(goal =>
         goal.id === id ? { ...goal, completed: !goal.completed, progress: goal.completed ? goal.progress : 100 } : goal
-      )
-    );
+      );
+      setGoals(updatedGoals);
+
+      const completedGoal = updatedGoals.find(g => g.id === id);
+      if (completedGoal) {
+        await handleUpdateProgress(id, completedGoal.completed ? 100 : completedGoal.progress);
+      }
+
+      toast.success(completedGoal?.completed ? 'Goal marked as complete' : 'Goal marked as incomplete');
+    } catch (error) {
+      console.error('Error updating goal:', error);
+      toast.error('Failed to update goal');
+      fetchGoals(); // Revert changes if API call fails
+    }
   };
   
-  const handleUpdateProgress = (id: string, progress: number) => {
-    setGoals(
-      goals.map((goal) =>
+  const handleUpdateProgress = async (id: string, progress: number) => {
+    try {
+      const userId = localStorage.getItem('fittrack_user_id');
+      const response = await fetch(`https://localhost:7054/Goals/set-progress?userId=${userId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('fittrack_api_key')}`
+        },
+        body: JSON.stringify({
+          goalId: parseInt(id),
+          progress: progress / 100 // Convert percentage to decimal
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update progress');
+      }
+
+      setGoals(goals.map(goal =>
         goal.id === id ? { ...goal, progress } : goal
-      )
-    );
+      ));
+
+      toast.success('Progress updated successfully');
+    } catch (error) {
+      console.error('Error updating progress:', error);
+      toast.error('Failed to update progress');
+      fetchGoals(); // Revert changes if API call fails
+    }
   };
   
   const handleEditGoal = (id: string) => {
