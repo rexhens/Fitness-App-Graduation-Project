@@ -1,8 +1,105 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Dumbbell, Heart, Target, Activity, TrendingUp, Scale, Clock } from 'lucide-react';
+import { Dumbbell, Heart, Target, Activity, TrendingUp, Scale, Clock, RefreshCw, Brain, Flame, Cog as Yoga } from 'lucide-react';
+import { toast } from 'react-toastify';
+
+interface WorkoutRecommendation {
+  workout_name: string;
+  description: string;
+  progress: number;
+}
 
 const Dashboard: React.FC = () => {
+  const [recommendations, setRecommendations] = useState<WorkoutRecommendation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchRecommendations();
+  }, []);
+
+  const fetchRecommendations = async () => {
+    try {
+      const userId = localStorage.getItem('fittrack_user_id');
+      const response = await fetch(`https://localhost:7054/WorkoutRecomendation/get-recommendation?userId=${userId}`, {
+        headers: {
+          'accept': '*/*',
+          'Authorization': `Bearer ${localStorage.getItem('fittrack_api_key')}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch recommendations');
+      }
+
+      const data = await response.json();
+      setRecommendations(data);
+    } catch (error) {
+      console.error('Error fetching recommendations:', error);
+      toast.error('Failed to load workout recommendations');
+      // Set default recommendations in case of error
+      setRecommendations([
+        { workout_name: 'Full Body Strength', description: 'Build strength with this full body routine', progress: 45 },
+        { workout_name: 'Cardio Challenge', description: 'Intensive cardio workout for endurance', progress: 60 },
+        { workout_name: 'Flexibility & Recovery', description: 'Improve flexibility and speed up recovery', progress: 25 },
+        { workout_name: 'Mind-Body Balance', description: 'Combine mental and physical wellness', progress: 30 },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const userId = localStorage.getItem('fittrack_user_id');
+      const response = await fetch(`https://localhost:7054/WorkoutRecomendation/refresh-recommendations?userId=${userId}`, {
+        method: 'POST',
+        headers: {
+          'accept': '*/*',
+          'Authorization': `Bearer ${localStorage.getItem('fittrack_api_key')}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to refresh recommendations');
+      }
+
+      toast.success('Recommendations refreshed successfully');
+      await fetchRecommendations(); // Fetch new recommendations after refresh
+    } catch (error) {
+      console.error('Error refreshing recommendations:', error);
+      toast.error('Failed to refresh recommendations');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleWorkoutClick = (workout: WorkoutRecommendation) => {
+    navigate('/chatbot', { 
+      state: { 
+        initialQuestion: `Tell me more about the "${workout.workout_name}" workout and how to get started with it.` 
+      }
+    });
+  };
+
+  const getWorkoutIcon = (index: number) => {
+    switch (index) {
+      case 0:
+        return <Dumbbell size={20} />;
+      case 1:
+        return <Flame size={20} />;
+      case 2:
+        return <Brain size={20} />;
+      case 3:
+        return <Yoga size={20} />;
+      default:
+        return <Activity size={20} />;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-gray-200">
@@ -86,30 +183,44 @@ const Dashboard: React.FC = () => {
           <div className="card h-full">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg font-semibold text-textPrimary">Recommended Programs</h2>
-              <a href="#" className="text-sm font-medium text-primary hover:text-primary-dark">
-                View All
-              </a>
+              <button 
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="flex items-center text-sm font-medium text-primary hover:text-primary-dark transition-colors disabled:opacity-50"
+              >
+                <RefreshCw size={16} className={`mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
             </div>
             
             <div className="space-y-4">
-              {[
-                { name: 'Full Body Strength', icon: <Dumbbell size={20} />, description: 'Build strength with this full body routine', progress: 45 },
-                { name: 'Cardio Challenge', icon: <Heart size={20} />, description: 'Intensive cardio workout for endurance', progress: 60 },
-                { name: 'Flexibility & Recovery', icon: <Activity size={20} />, description: 'Improve flexibility and speed up recovery', progress: 25 },
-              ].map((program, index) => (
-                <div key={index} className="flex p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
-                  <div className="p-3 rounded-full bg-primary/10 text-primary mr-4">
-                    {program.icon}
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-base font-medium text-textPrimary">{program.name}</h3>
-                    <p className="text-sm text-textTertiary">{program.description}</p>
-                    <div className="mt-2 h-2 bg-gray-200 rounded-full">
-                      <div className="h-full bg-primary rounded-full" style={{ width: `${program.progress}%` }}></div>
+              {loading ? (
+                <div className="flex justify-center items-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : (
+                recommendations.map((program, index) => (
+                  <div 
+                    key={index} 
+                    className="flex p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                    onClick={() => handleWorkoutClick(program)}
+                  >
+                    <div className="p-3 rounded-full bg-primary/10 text-primary mr-4">
+                      {getWorkoutIcon(index)}
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-base font-medium text-textPrimary">{program.workout_name}</h3>
+                      <p className="text-sm text-textTertiary">{program.description}</p>
+                      <div className="mt-2 h-2 bg-gray-200 rounded-full">
+                        <div 
+                          className="h-full bg-primary rounded-full" 
+                          style={{ width: `${program.progress}%` }}
+                        ></div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </motion.div>

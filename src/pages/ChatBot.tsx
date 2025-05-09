@@ -10,16 +10,17 @@ interface Message {
   timestamp: Date;
 }
 
+interface ApiMessage {
+  id: number;
+  role: string;
+  message: string;
+  created_at: string;
+  conversation_id: number;
+}
+
 const ChatBot: React.FC = () => {
   const [input, setInput] = useState<string>('');
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      text: "Hello! I'm your AI fitness coach. How can I help you today with your fitness journey?",
-      isUser: false,
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -28,8 +29,43 @@ const ChatBot: React.FC = () => {
   };
 
   useEffect(() => {
+    fetchConversationHistory();
+  }, []);
+
+  useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const fetchConversationHistory = async () => {
+    try {
+      const userId = localStorage.getItem('fittrack_user_id');
+      const response = await fetch(`https://localhost:7054/ClientCall/get-all-messages?userId=${userId}`, {
+        headers: {
+          'accept': '*/*',
+          'Authorization': `Bearer ${localStorage.getItem('fittrack_api_key')}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch conversation history');
+      }
+
+      const data: ApiMessage[] = await response.json();
+      
+      // Convert API messages to our Message format
+      const convertedMessages = data.map(apiMessage => ({
+        id: apiMessage.id.toString(),
+        text: apiMessage.message,
+        isUser: apiMessage.role === 'user',
+        timestamp: new Date(apiMessage.created_at)
+      }));
+
+      setMessages(convertedMessages);
+    } catch (error) {
+      console.error('Error fetching conversation history:', error);
+      toast.error('Failed to load conversation history');
+    }
+  };
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,58 +83,52 @@ const ChatBot: React.FC = () => {
     setInput('');
     setLoading(true);
     
-   try {
-  const response = await fetch('https://localhost:7054/ClientCall/ask?user_id=8', {
-    method: 'POST',
-    headers: {
-      'accept': '*/*',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ question: input }),
-  });
+    try {
+      const userId = localStorage.getItem('fittrack_user_id');
+      const response = await fetch(`https://localhost:7054/ClientCall/ask?user_id=${userId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('fittrack_api_key')}`,
+          'accept': '*/*'
+        },
+        body: JSON.stringify({
+          question: input
+        }),
+      });
 
-  if (!response.ok) {
-    throw new Error('API request failed');
-  }
+      if (!response.ok) {
+        throw new Error('Failed to get response from AI');
+      }
 
-  let botResponse = await response.text();
-
-  // Add some variation based on the user's question
-  const lowerInput = input.toLowerCase();
-  if (lowerInput.includes('sleep') || lowerInput.includes('rest')) {
-    botResponse += " Quality sleep is crucial for muscle recovery and overall fitness. Getting 7-9 hours of sleep is recommended...";
-  } else if (lowerInput.includes('diet') || lowerInput.includes('nutrition') || lowerInput.includes('eat')) {
-    botResponse += " Nutrition is a foundation of fitness success...";
-  } else if (lowerInput.includes('workout') || lowerInput.includes('exercise') || lowerInput.includes('train')) {
-    botResponse += " For an effective workout routine, consistency beats intensity...";
-  } else {
-    botResponse += " For best fitness results, focus on the three pillars...";
-  }
-
-  const botMessageObj: Message = {
-    id: (Date.now() + 1).toString(),
-    text: botResponse,
-    isUser: false,
-    timestamp: new Date(),
+      const data = await response.json();
+      console.log('AI response:', data);
+      
+      const botMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: data.message || 'I apologize, but I couldn\'t process that request.',
+        isUser: false,
+        timestamp: new Date(),
+      };
+      
+      setMessages((prev) => [...prev, botMessage]);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast.error('Failed to get a response. Please try again.');
+      
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          text: "I'm sorry, I'm having trouble connecting right now. Please try again later.",
+          isUser: false,
+          timestamp: new Date(),
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
   };
-
-  setMessages((prev) => [...prev, botMessageObj]);
-   setLoading(false);
-} catch (error) {
-  console.error('Error sending message:', error);
-  toast.error('Failed to get a response. Please try again.');
-  setMessages((prev) => [
-    ...prev,
-    {
-      id: (Date.now() + 1).toString(),
-      text: "I'm sorry, I'm having trouble connecting right now. Please try again later.",
-      isUser: false,
-      timestamp: new Date(),
-    },
-  ]);
-}
-  }
-
 
   return (
     <div className="flex flex-col h-[calc(100vh-10rem)]">
