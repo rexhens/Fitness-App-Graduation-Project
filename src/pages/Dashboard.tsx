@@ -10,14 +10,24 @@ interface WorkoutRecommendation {
   progress: number;
 }
 
+interface Goal {
+  id: string;
+  goal_description: string;
+  target_date: string;
+  completed: boolean;
+  progress: number;
+}
+
 const Dashboard: React.FC = () => {
   const [recommendations, setRecommendations] = useState<WorkoutRecommendation[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchRecommendations();
+    fetchGoals();
   }, []);
 
   const fetchRecommendations = async () => {
@@ -39,7 +49,6 @@ const Dashboard: React.FC = () => {
     } catch (error) {
       console.error('Error fetching recommendations:', error);
       toast.error('Failed to load workout recommendations');
-      // Set default recommendations in case of error
       setRecommendations([
         { workout_name: 'Full Body Strength', description: 'Build strength with this full body routine', progress: 45 },
         { workout_name: 'Cardio Challenge', description: 'Intensive cardio workout for endurance', progress: 60 },
@@ -48,6 +57,34 @@ const Dashboard: React.FC = () => {
       ]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchGoals = async () => {
+    try {
+      const userId = localStorage.getItem('fittrack_user_id');
+      const response = await fetch(`https://localhost:7054/Goals/get-all-goals?userId=${userId}`, {
+        headers: {
+          'accept': '*/*',
+          'Authorization': `Bearer ${localStorage.getItem('fittrack_api_key')}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch goals');
+      }
+
+      const data = await response.json();
+      setGoals(data.map((goal: any) => ({
+        id: goal.id.toString(),
+        goal_description: goal.goal_description,
+        target_date: goal.target_date,
+        completed: goal.completed || false,
+        progress: Math.round(goal.progress * 100)
+      })));
+    } catch (error) {
+      console.error('Error fetching goals:', error);
+      toast.error('Failed to load goals');
     }
   };
 
@@ -68,7 +105,7 @@ const Dashboard: React.FC = () => {
       }
 
       toast.success('Recommendations refreshed successfully');
-      await fetchRecommendations(); // Fetch new recommendations after refresh
+      await fetchRecommendations();
     } catch (error) {
       console.error('Error refreshing recommendations:', error);
       toast.error('Failed to refresh recommendations');
@@ -78,11 +115,8 @@ const Dashboard: React.FC = () => {
   };
 
   const handleWorkoutClick = (workout: WorkoutRecommendation) => {
-    navigate('/chatbot', { 
-      state: { 
-        initialQuestion: `Tell me more about the "${workout.workout_name}" workout and how to get started with it.` 
-      }
-    });
+    // Navigate to the workout details page
+    navigate(`/workout/${encodeURIComponent(workout.workout_name)}`);
   };
 
   const getWorkoutIcon = (index: number) => {
@@ -98,6 +132,20 @@ const Dashboard: React.FC = () => {
       default:
         return <Activity size={20} />;
     }
+  };
+
+  const calculateTimeRemaining = (targetDate: string) => {
+    const now = new Date();
+    const target = new Date(targetDate);
+    const diff = target.getTime() - now.getTime();
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    
+    if (days < 0) return 'Overdue';
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Tomorrow';
+    if (days < 7) return `${days} days left`;
+    if (days < 30) return `${Math.floor(days / 7)} weeks left`;
+    return `${Math.floor(days / 30)} months left`;
   };
 
   return (
@@ -240,20 +288,19 @@ const Dashboard: React.FC = () => {
             </div>
 
             <div className="space-y-4">
-              {[
-                { goal: 'Lose 5kg in 2 months', deadline: '3 weeks left', progress: 65 },
-                { goal: 'Run 5km without stopping', deadline: '2 weeks left', progress: 80 },
-                { goal: 'Meditate daily for 10 minutes', deadline: '1 month left', progress: 40 },
-              ].map((goal, index) => (
-                <div key={index} className="p-4 border border-gray-100 rounded-lg">
+              {goals.slice(0, 3).map((goal) => (
+                <div key={goal.id} className="p-4 border border-gray-100 rounded-lg">
                   <div className="flex justify-between">
-                    <h3 className="text-base font-medium text-textPrimary">{goal.goal}</h3>
+                    <h3 className="text-base font-medium text-textPrimary">{goal.goal_description}</h3>
                     <div className="p-1 rounded bg-amber-100 text-amber-600 text-xs font-medium">
-                      {goal.deadline}
+                      {calculateTimeRemaining(goal.target_date)}
                     </div>
                   </div>
                   <div className="mt-2 h-2 bg-gray-200 rounded-full">
-                    <div className="h-full bg-primary rounded-full" style={{ width: `${goal.progress}%` }}></div>
+                    <div 
+                      className="h-full bg-primary rounded-full" 
+                      style={{ width: `${goal.progress}%` }}
+                    ></div>
                   </div>
                   <div className="mt-1 text-right text-xs text-textSecondary">
                     {goal.progress}% complete

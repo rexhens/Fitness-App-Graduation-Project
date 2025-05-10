@@ -11,6 +11,7 @@ import FitnessGoals from './pages/FitnessGoals';
 import NotFound from './pages/NotFound';
 import InitialMetrics from './pages/InitialMetrics';
 import Signup from './pages/SignUp';
+import WorkoutDetails from './pages/WorkoutDetails';
 
 // Layout
 import DashboardLayout from './components/layouts/DashboardLayout';
@@ -28,6 +29,7 @@ const App: React.FC = () => {
         <Route path="metrics" element={<PhysicalMetrics />} />
         <Route path="chatbot" element={<ChatBot />} />
         <Route path="goals" element={<FitnessGoals />} />
+        <Route path="workout/:id" element={<WorkoutDetails />} />
       </Route>
       
       <Route path="*" element={<NotFound />} />
