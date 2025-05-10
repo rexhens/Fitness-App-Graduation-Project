@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Dumbbell, Heart, Target, Activity, TrendingUp, Scale, Clock, RefreshCw, Brain, Flame, Cog as Yoga } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { Link } from 'react-router-dom'
 
 interface WorkoutRecommendation {
   workout_name: string;
@@ -24,11 +25,78 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const navigate = useNavigate();
+const [weightKg, setWeightKg] = useState<number | null>(null)
+const [progressCount, setProgressCount] = useState<number>(0)
+const [appUsageTime, setAppUsageTime] = useState<string>('')
 
   useEffect(() => {
     fetchRecommendations();
     fetchGoals();
+    const userId = localStorage.getItem('fittrack_user_id')
+  if (!userId) return
+
+  fetchMetrics(userId)
+  fetchProgress(userId)
+  fetchUserCreatedAt(userId)
   }, []);
+
+
+const fetchMetrics = async (userId: string) => {
+  try {
+    const res = await fetch(`https://localhost:7054/get-metrics?user_id=${userId}`, {
+      headers: { 'accept': '*/*' }
+    })
+    if (!res.ok) throw new Error()
+    const data = await res.json()
+    setWeightKg(data.weight_kg)
+  } catch (err) {
+    console.error('Error fetching metrics')
+  }
+}
+
+const fetchProgress = async (userId: string) => {
+  try {
+    const res = await fetch(`https://localhost:7054/Progress/get-full-progres?userId=${userId}`, {
+      headers: { 'accept': '*/*' }
+    })
+    if (!res.ok) throw new Error()
+    const data = await res.json()
+    setProgressCount(Array.isArray(data) ? data.length : 0)
+  } catch (err) {
+    console.error('Error fetching progress')
+  }
+}
+
+const fetchUserCreatedAt = async (userId: string) => {
+  try {
+    const res = await fetch(`https://localhost:7054/api/Users/${userId}`, {
+      headers: { accept: '*/*' }
+    })
+
+    if (!res.ok) throw new Error('Failed to fetch user info')
+
+    const user = await res.json()
+    const createdAt = new Date(user.created_at)
+    const now = new Date()
+    const diffInMs = now.getTime() - createdAt.getTime()
+
+    const days = Math.floor(diffInMs / (1000 * 60 * 60 * 24))
+    const weeks = Math.floor(days / 7)
+    const months = Math.floor(weeks / 4)
+
+    if (months >= 1) {
+      setAppUsageTime(`${months} month${months > 1 ? 's' : ''}`)
+    } else if (weeks >= 1) {
+      setAppUsageTime(`${weeks} week${weeks > 1 ? 's' : ''}`)
+    } else {
+      setAppUsageTime(`${days+1} day${days !== 1 ? 's' : ''}`)
+    }
+  } catch (err) {
+    console.error('Failed to calculate app usage time:', err)
+  }
+}
+
+
 
   const fetchRecommendations = async () => {
     try {
@@ -165,60 +233,65 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Metrics Overview */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }} 
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
-      >
-        <div className="card bg-blue-50 border-l-4 border-blue-500">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-blue-100 text-blue-500 mr-4">
-              <Activity size={24} />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-blue-500">Weekly Activity</p>
-              <p className="text-xl font-semibold">4/7 days</p>
-            </div>
-          </div>
-        </div>
+     <motion.div 
+  initial={{ opacity: 0, y: 20 }} 
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 0.5 }}
+  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+>
+  {/* Weekly Activity - make this more dynamic later */}
+  <div className="card bg-blue-50 border-l-4 border-blue-500">
+    <div className="flex items-center">
+      <div className="p-3 rounded-full bg-blue-100 text-blue-500 mr-4">
+        <Activity size={24} />
+      </div>
+      <div>
+        <p className="text-sm font-medium text-blue-500">Weekly Activity</p>
+        <p className="text-xl font-semibold">Keep going!</p>
+      </div>
+    </div>
+  </div>
 
-        <div className="card bg-green-50 border-l-4 border-green-500">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-green-100 text-green-500 mr-4">
-              <TrendingUp size={24} />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-green-500">Weekly Progress</p>
-              <p className="text-xl font-semibold">+12%</p>
-            </div>
-          </div>
-        </div>
+  {/* Progresses Made */}
+  <div className="card bg-green-50 border-l-4 border-green-500">
+    <div className="flex items-center">
+      <div className="p-3 rounded-full bg-green-100 text-green-500 mr-4">
+        <TrendingUp size={24} />
+      </div>
+      <div>
+        <p className="text-sm font-medium text-green-500">Progresses Made</p>
+        <p className="text-xl font-semibold">{progressCount} Logs </p>
+      </div>
+    </div>
+  </div>
 
-        <div className="card bg-purple-50 border-l-4 border-purple-500">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-purple-100 text-purple-500 mr-4">
-              <Scale size={24} />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-purple-500">Current Weight</p>
-              <p className="text-xl font-semibold">75 kg</p>
-            </div>
-          </div>
-        </div>
+  {/* Current Weight */}
+  <div className="card bg-purple-50 border-l-4 border-purple-500">
+    <div className="flex items-center">
+      <div className="p-3 rounded-full bg-purple-100 text-purple-500 mr-4">
+        <Scale size={24} />
+      </div>
+      <div>
+        <p className="text-sm font-medium text-purple-500">Current Weight</p>
+        <p className="text-xl font-semibold">{weightKg ? `${weightKg} kg` : 'N/A'}</p>
+      </div>
+    </div>
+  </div>
 
-        <div className="card bg-amber-50 border-l-4 border-amber-500">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-amber-100 text-amber-500 mr-4">
-              <Clock size={24} />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-amber-500">Workout Time</p>
-              <p className="text-xl font-semibold">5.4 hours</p>
-            </div>
-          </div>
-        </div>
-      </motion.div>
+  {/* Time Using App */}
+  <div className="card bg-amber-50 border-l-4 border-amber-500">
+    <div className="flex items-center">
+      <div className="p-3 rounded-full bg-amber-100 text-amber-500 mr-4">
+        <Clock size={24} />
+      </div>
+      <div>
+        <p className="text-sm font-medium text-amber-500">Using FitTrack For</p>
+        <p className="text-xl font-semibold">{appUsageTime}</p>
+      </div>
+    </div>
+  </div>
+</motion.div>
+
 
       {/* Fitness Programs and Activity Sections */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -282,9 +355,9 @@ const Dashboard: React.FC = () => {
           <div className="card h-full">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg font-semibold text-textPrimary">Your Goals</h2>
-              <a href="/goals" className="text-sm font-medium text-primary hover:text-primary-dark">
-                Manage
-              </a>
+             <Link to="/goals" className="text-sm font-medium text-primary hover:text-primary-dark">
+  Manage
+</Link>
             </div>
 
             <div className="space-y-4">
